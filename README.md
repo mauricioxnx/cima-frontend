@@ -1,16 +1,47 @@
 # React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este projeto utiliza React com Vite para criar uma aplicação web moderna, rápida e eficiente.
 
-Currently, two official plugins are available:
+O Vite oferece um ambiente de desenvolvimento otimizado com atualização automática (HMR - Hot Module Replacement), permitindo visualizar alterações em tempo real sem recarregar toda a aplicação.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tecnologias Utilizadas
+
+- React
+- Vite
+- JavaScript
+- ESLint
+
+## Plugins Oficiais Disponíveis
+
+Atualmente, existem dois plugins oficiais principais para integração do React com Vite:
+
+- `@vitejs/plugin-react`
+  - Utiliza Babel (ou OXC em algumas configurações)
+  - Suporte a Fast Refresh
+
+- `@vitejs/plugin-react-swc`
+  - Utiliza SWC
+  - Compilação mais rápida e Fast Refresh
 
 ## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+O React Compiler não está ativado neste projeto devido ao impacto no desempenho durante desenvolvimento e build.
 
-## Expanding the ESLint configuration
+Para ativar e configurar:
+https://react.dev/learn/react-compiler/installation
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Configuração do ESLint
+
+O ESLint é utilizado para ajudar na padronização e qualidade do código.
+
+Para aplicações maiores ou em produção, recomenda-se utilizar TypeScript juntamente com regras avançadas de lint.
+
+Mais informações:
+https://typescript-eslint.io
+
+## Como Executar o Projeto
+
+### Instalar dependências
+
+```bash
+npm install
