@@ -1,29 +1,15 @@
-// Importação do componente Box e do hook useTheme
 import { Box, useTheme } from "@mui/material";
-
-// 👉 IMPORTA A TUA PÁGINA DE MOVIMENTOS (ajusta o caminho)
-import MovimentosComponent from "../../components/movimentos"; 
-
-// Importação do cabeçalho
+import MovimentosComponent from "../../components/movimentos";
 import Header from "../../components/Header";
-
-// Importação das cores do tema
 import { tokens } from "../../theme";
 
-// Componente (antes era Geografia)
 const Movimentos = () => {
   const tema = useTheme();
   const cores = tokens(tema.palette.mode);
 
   return (
     <Box m="20px">
-      {/* Cabeçalho */}
-      <Header
-        title="Movimentos"
-        subtitle="Gestão de Movimentos de Stock"
-      />
-
-      {/* Container */}
+      <Header title="Movimentos" subtitle="Gestão de Movimentos de Stock" />
       <Box
         height="75vh"
         border={`1px solid ${cores.grey[100]}`}
@@ -31,8 +17,7 @@ const Movimentos = () => {
         p="10px"
         overflow="auto"
       >
-        {/* 👉 AQUI CHAMAS O COMPONENTE */}
-        <MovimentosPage />
+        <MovimentosComponent />  {/* ✅ nome correcto */}
       </Box>
     </Box>
   );
