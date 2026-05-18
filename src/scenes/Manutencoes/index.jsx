@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
-import { formatDate } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -44,13 +43,13 @@ const emptyForm = {
 }
 
 const Manutencoes = () => {
-  const [eventos, setEventos]       = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [modal, setModal]           = useState(false);
-  const [form, setForm]             = useState(emptyForm);
+  const [eventos, setEventos]           = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [modal, setModal]               = useState(false);
+  const [form, setForm]                 = useState(emptyForm);
   const [utilizadores, setUtilizadores] = useState([]);
-  const [maquinas, setMaquinas]     = useState([]);
-  const [inventario, setInventario] = useState([]);
+  const [maquinas, setMaquinas]         = useState([]);
+  const [inventario, setInventario]     = useState([]);
 
   const carregar = async () => {
     try {
@@ -63,8 +62,8 @@ const Manutencoes = () => {
       ]);
 
       const formatado = (manut ?? []).map(m => ({
-        id:    String(m.id),
-        title: `${m.tipoManutencaoNome ?? m.idTipo} — ${m.maquinaVeiculoModelo ?? ''}`,
+        id:              String(m.id),
+        title:           `${m.tipoManutencaoNome ?? m.idTipo} — ${m.maquinaVeiculoModelo ?? ''}`,
         start:           m.dataAgendada,
         end:             m.dataExecucao ?? m.dataAgendada,
         allDay:          true,
@@ -178,7 +177,11 @@ const Manutencoes = () => {
                   gap: "6px",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                 }}>
+
+                  {/* ✅ secondaryTypographyProps corrige o erro <div> dentro de <p> */}
                   <ListItemText
+                    primaryTypographyProps={{ component: "div" }}
+                    secondaryTypographyProps={{ component: "div" }}
                     primary={
                       <Typography color="#222" fontSize="13px" fontWeight="bold">
                         {m.tipoManutencaoNome ?? m.idTipo ?? "Manutenção"}
@@ -195,7 +198,9 @@ const Manutencoes = () => {
                         {m.utilizadorNome && (
                           <Typography color="#777" fontSize="11px">👤 {m.utilizadorNome}</Typography>
                         )}
-                        <Typography color="#777" fontSize="11px">📅 {m.dataAgendada ?? "—"}</Typography>
+                        <Typography color="#777" fontSize="11px">
+                          📅 {m.dataAgendada ?? "—"}
+                        </Typography>
                         {m.custo && (
                           <Typography color="#777" fontSize="11px">
                             💰 {Number(m.custo).toLocaleString()} Kz
@@ -265,19 +270,22 @@ const Manutencoes = () => {
         <DialogTitle>Nova Manutenção</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: "12px", pt: "16px !important" }}>
 
-          <TextField select label="Tipo de Manutenção" value={form.idTipo} onChange={set('idTipo')} fullWidth>
+          <TextField select label="Tipo de Manutenção" value={form.idTipo}
+            onChange={set('idTipo')} fullWidth>
             {TIPOS_MANUTENCAO.map(t => (
               <MenuItem key={t.id} value={t.nome}>{t.nome}</MenuItem>
             ))}
           </TextField>
 
-          <TextField select label="Tipo Manutenção (ID)" value={form.tipoManutencaoId} onChange={set('tipoManutencaoId')} fullWidth>
+          <TextField select label="Tipo Manutenção (ID)" value={form.tipoManutencaoId}
+            onChange={set('tipoManutencaoId')} fullWidth>
             {TIPOS_MANUTENCAO.map(t => (
               <MenuItem key={t.id} value={t.id}>{t.nome}</MenuItem>
             ))}
           </TextField>
 
-          <TextField label="Descrição" value={form.descricao} onChange={set('descricao')} fullWidth multiline rows={2} />
+          <TextField label="Descrição" value={form.descricao}
+            onChange={set('descricao')} fullWidth multiline rows={2} />
 
           <Box display="grid" gridTemplateColumns="1fr 1fr" gap="12px">
             <TextField label="Data Agendada" type="date" value={form.dataAgendada}
@@ -286,7 +294,8 @@ const Manutencoes = () => {
               onChange={set('dataExecucao')} fullWidth InputLabelProps={{ shrink: true }} />
           </Box>
 
-          <TextField select label="Estado" value={form.estado} onChange={set('estado')} fullWidth>
+          <TextField select label="Estado" value={form.estado}
+            onChange={set('estado')} fullWidth>
             {["PENDENTE", "EM_CURSO", "CONCLUIDA", "CANCELADA"].map(e => (
               <MenuItem key={e} value={e}>{e}</MenuItem>
             ))}
@@ -307,7 +316,9 @@ const Manutencoes = () => {
             onChange={set('maquinaVeiculoId')} fullWidth>
             <MenuItem value="">— Nenhuma —</MenuItem>
             {maquinas.map(m => (
-              <MenuItem key={m.id} value={m.id}>{m.modelo} — {m.matriculaNSerie ?? ''}</MenuItem>
+              <MenuItem key={m.id} value={m.id}>
+                {m.modelo} — {m.matriculaNSerie ?? ''}
+              </MenuItem>
             ))}
           </TextField>
 
@@ -315,7 +326,9 @@ const Manutencoes = () => {
             onChange={set('inventarioId')} fullWidth>
             <MenuItem value="">— Nenhuma —</MenuItem>
             {inventario.map(i => (
-              <MenuItem key={i.id} value={i.id}>{i.codigo} — {i.descricao}</MenuItem>
+              <MenuItem key={i.id} value={i.id}>
+                {i.codigo} — {i.descricao}
+              </MenuItem>
             ))}
           </TextField>
 
