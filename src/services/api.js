@@ -103,7 +103,7 @@ export const getProximas = (dias = 7) =>
 
 // ── Tarefas ───────────────────────────────────────────
 export const getTarefas = () =>
-  api.get('/tarefas/estado/ABERTA').then(r => r.data.dados)
+  api.get('/tarefas').then(r => r.data.dados)
 export const createTarefa = d =>
   api.post('/tarefas', d).then(r => r.data.dados)
 export const updateEstadoTarefa = (id, estado) =>
