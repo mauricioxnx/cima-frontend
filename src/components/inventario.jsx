@@ -23,7 +23,6 @@ const schema = yup.object().shape({
   descricao:   yup.string().required("Obrigatório"),
   unidadeBase: yup.string(),
   preco:       yup.number().min(0).required("Obrigatório"),
-  precoVenda1: yup.number().min(0).required("Obrigatório"),
   quantidade:  yup.number().min(0).required("Obrigatório"),
 });
 
@@ -31,14 +30,12 @@ const schemaEdicao = yup.object().shape({
   descricao:   yup.string().required("Obrigatório"),
   unidadeBase: yup.string(),
   preco:       yup.number().min(0).required("Obrigatório"),
-  precoVenda1: yup.number().min(0).required("Obrigatório"),
   quantidade:  yup.number().min(0).required("Obrigatório"),
 });
 
 const inicial = {
   codigo: "", descricao: "", descricao3: "",
-  unidadeBase: "", preco: "", precoVenda1: "",
-  precoVenda2: "", precoVenda3: "", quantidade: 0,
+  unidadeBase: "", preco: "", quantidade: 0,
 };
 
 const preparar = values => ({
@@ -47,9 +44,6 @@ const preparar = values => ({
   descricao3:  values.descricao3 ?? "",
   unidadeBase: values.unidadeBase,
   preco:       Number(values.preco),
-  precoVenda1: Number(values.precoVenda1),
-  precoVenda2: Number(values.precoVenda2 ?? 0),
-  precoVenda3: Number(values.precoVenda3 ?? 0),
   quantidade:  Number(values.quantidade),
 });
 
@@ -58,11 +52,11 @@ const Inventario = () => {
   const cores = tokens(tema.palette.mode);
   const isNaoMobile = useMediaQuery("(min-width:600px)");
 
-  const [dados, setDados]         = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [modal, setModal]         = useState(false);
-  const [editing, setEditing]     = useState(null);
-  const [search, setSearch]       = useState("");
+  const [dados, setDados]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal]     = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [search, setSearch]   = useState("");
 
   const load = async () => {
     try {
@@ -118,17 +112,13 @@ const Inventario = () => {
   );
 
   const colunas = [
-    { field: "id",          headerName: "ID",          flex: 0.3 },
-    { field: "codigo",      headerName: "Código",      flex: 1, cellClassName: "name-column--cell" },
-    { field: "descricao",   headerName: "Descrição",   flex: 2 },
-    { field: "unidadeBase", headerName: "Unidade",     flex: 0.8 },
+    { field: "id",          headerName: "ID",        flex: 0.3 },
+    { field: "codigo",      headerName: "Código",    flex: 1, cellClassName: "name-column--cell" },
+    { field: "descricao",   headerName: "Descrição", flex: 2 },
+    { field: "unidadeBase", headerName: "Unidade",   flex: 0.8 },
     {
       field: "preco", headerName: "Preço (Kz)", flex: 1,
       renderCell: ({ row }) => row.preco ? `${Number(row.preco).toLocaleString()} Kz` : "—",
-    },
-    {
-      field: "precoVenda1", headerName: "P. Venda (Kz)", flex: 1,
-      renderCell: ({ row }) => row.precoVenda1 ? `${Number(row.precoVenda1).toLocaleString()} Kz` : "—",
     },
     {
       field: "quantidade", headerName: "Stock", flex: 0.8,
@@ -194,29 +184,12 @@ const Inventario = () => {
         helperText={touched.preco && errors.preco}
         sx={{ gridColumn: "span 2" }} />
 
-      <TextField fullWidth variant="filled" label="Preço Venda 1 (Kz)" type="number"
-        name="precoVenda1" value={values.precoVenda1 ?? ''}
-        onBlur={handleBlur} onChange={handleChange}
-        error={!!touched.precoVenda1 && !!errors.precoVenda1}
-        helperText={touched.precoVenda1 && errors.precoVenda1}
-        sx={{ gridColumn: "span 2" }} />
-
-      <TextField fullWidth variant="filled" label="Preço Venda 2 (Kz)" type="number"
-        name="precoVenda2" value={values.precoVenda2 ?? ''}
-        onChange={handleChange}
-        sx={{ gridColumn: "span 2" }} />
-
-      <TextField fullWidth variant="filled" label="Preço Venda 3 (Kz)" type="number"
-        name="precoVenda3" value={values.precoVenda3 ?? ''}
-        onChange={handleChange}
-        sx={{ gridColumn: "span 2" }} />
-
       <TextField fullWidth variant="filled" label="Quantidade em Stock" type="number"
         name="quantidade" value={values.quantidade ?? 0}
         onBlur={handleBlur} onChange={handleChange}
         error={!!touched.quantidade && !!errors.quantidade}
         helperText={touched.quantidade && errors.quantidade}
-        sx={{ gridColumn: "span 4" }} />
+        sx={{ gridColumn: "span 2" }} />
     </Box>
   );
 
@@ -285,9 +258,6 @@ const Inventario = () => {
               descricao3:  editing.descricao3  ?? '',
               unidadeBase: editing.unidadeBase ?? '',
               preco:       editing.preco       ?? '',
-              precoVenda1: editing.precoVenda1 ?? '',
-              precoVenda2: editing.precoVenda2 ?? '',
-              precoVenda3: editing.precoVenda3 ?? '',
               quantidade:  editing.quantidade  ?? 0,
             }}
             validationSchema={schemaEdicao}
