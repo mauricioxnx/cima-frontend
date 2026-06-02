@@ -31,13 +31,12 @@ const TIPOS_MANUTENCAO = [
 
 const emptyForm = {
   idTipo:           "PREVENTIVA",
+  tipoManutencaoId: "",
   dataAgendada:     "",
   dataExecucao:     "",
   descricao:        "",
   estado:           "PENDENTE",
-  custo:            "",
   utilizadorId:     "",
-  tipoManutencaoId: "",
   maquinaVeiculoId: "",
   inventarioId:     "",
 }
@@ -47,7 +46,7 @@ const Manutencoes = () => {
   const [loading, setLoading]           = useState(true);
   const [modal, setModal]               = useState(false);
   const [form, setForm]                 = useState(emptyForm);
-  const [utilizadores, setUtilizadores] = useState([]);
+  const [tecnicos, setTecnicos]         = useState([]);
   const [maquinas, setMaquinas]         = useState([]);
   const [inventario, setInventario]     = useState([]);
 
@@ -74,7 +73,12 @@ const Manutencoes = () => {
       }));
 
       setEventos(formatado);
-      setUtilizadores(utils ?? []);
+
+      // ✅ apenas utilizadores com perfil TECNICO
+      setTecnicos((utils ?? []).filter(
+        u => u.perfilNome?.toUpperCase() === "TECNICO"
+      ));
+
       setMaquinas(maqs ?? []);
       setInventario(inv ?? []);
     } catch(e) {
@@ -95,13 +99,12 @@ const Manutencoes = () => {
     try {
       await createManutencao({
         idTipo:           form.idTipo,
+        tipoManutencaoId: form.tipoManutencaoId ? Number(form.tipoManutencaoId) : null,
         dataAgendada:     form.dataAgendada,
         dataExecucao:     form.dataExecucao || null,
         descricao:        form.descricao,
-        estado:           form.estado,
-        custo:            form.custo ? Number(form.custo) : null,
+        estado:           "PENDENTE", // ✅ sempre PENDENTE
         utilizadorId:     form.utilizadorId     ? Number(form.utilizadorId)     : null,
-        tipoManutencaoId: form.tipoManutencaoId ? Number(form.tipoManutencaoId) : null,
         maquinaVeiculoId: form.maquinaVeiculoId ? Number(form.maquinaVeiculoId) : null,
         inventarioId:     form.inventarioId     ? Number(form.inventarioId)     : null,
       });
@@ -177,8 +180,6 @@ const Manutencoes = () => {
                   gap: "6px",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                 }}>
-
-                  {/* ✅ secondaryTypographyProps corrige o erro <div> dentro de <p> */}
                   <ListItemText
                     primaryTypographyProps={{ component: "div" }}
                     secondaryTypographyProps={{ component: "div" }}
@@ -201,11 +202,6 @@ const Manutencoes = () => {
                         <Typography color="#777" fontSize="11px">
                           📅 {m.dataAgendada ?? "—"}
                         </Typography>
-                        {m.custo && (
-                          <Typography color="#777" fontSize="11px">
-                            💰 {Number(m.custo).toLocaleString()} Kz
-                          </Typography>
-                        )}
                         <Chip label={m.estado} size="small" sx={{
                           mt: "4px",
                           background: COR_ESTADO[m.estado] ?? "#9e9e9e",
@@ -270,15 +266,16 @@ const Manutencoes = () => {
         <DialogTitle>Nova Manutenção</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: "12px", pt: "16px !important" }}>
 
-          <TextField select label="Tipo de Manutenção" value={form.idTipo}
-            onChange={set('idTipo')} fullWidth>
-            {TIPOS_MANUTENCAO.map(t => (
-              <MenuItem key={t.id} value={t.nome}>{t.nome}</MenuItem>
-            ))}
-          </TextField>
-
-          <TextField select label="Tipo Manutenção (ID)" value={form.tipoManutencaoId}
-            onChange={set('tipoManutencaoId')} fullWidth>
+          {/* ✅ Um único select unificado de tipo */}
+          <TextField select label="Tipo de Manutenção" value={form.tipoManutencaoId}
+            onChange={e => {
+              const t = TIPOS_MANUTENCAO.find(t => t.id === Number(e.target.value));
+              setForm(f => ({
+                ...f,
+                tipoManutencaoId: e.target.value,
+                idTipo: t?.nome ?? "PREVENTIVA",
+              }));
+            }} fullWidth>
             {TIPOS_MANUTENCAO.map(t => (
               <MenuItem key={t.id} value={t.id}>{t.nome}</MenuItem>
             ))}
@@ -294,20 +291,20 @@ const Manutencoes = () => {
               onChange={set('dataExecucao')} fullWidth InputLabelProps={{ shrink: true }} />
           </Box>
 
-          <TextField select label="Estado" value={form.estado}
-            onChange={set('estado')} fullWidth>
-            {["PENDENTE", "EM_CURSO", "CONCLUIDA", "CANCELADA"].map(e => (
-              <MenuItem key={e} value={e}>{e}</MenuItem>
-            ))}
-          </TextField>
+          {/* ✅ Estado fixo PENDENTE — apenas informativo */}
+          <TextField
+            label="Estado"
+            value="PENDENTE"
+            fullWidth
+            disabled
+            helperText="Novas manutenções começam sempre como PENDENTE"
+          />
 
-          <TextField label="Custo (Kz)" type="number" value={form.custo}
-            onChange={set('custo')} fullWidth />
-
-          <TextField select label="Utilizador responsável" value={form.utilizadorId}
+          {/* ✅ Apenas técnicos */}
+          <TextField select label="Técnico Responsável" value={form.utilizadorId}
             onChange={set('utilizadorId')} fullWidth>
             <MenuItem value="">— Nenhum —</MenuItem>
-            {utilizadores.map(u => (
+            {tecnicos.map(u => (
               <MenuItem key={u.id} value={u.id}>{u.nome}</MenuItem>
             ))}
           </TextField>
