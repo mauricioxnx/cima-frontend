@@ -18,7 +18,6 @@ const empty = {
   inventarioId:  "",
   quantidade:    1,
   documentoRef:  "",
-  preco:         "",
 };
 
 const Movimentos = () => {
@@ -57,7 +56,6 @@ const Movimentos = () => {
         inventarioId:  Number(form.inventarioId),
         quantidade:    Number(form.quantidade),
         documentoRef:  form.documentoRef || null,
-        preco:         form.preco ? Number(form.preco) : null,
       });
       setForm(empty);
       await load();
@@ -108,13 +106,6 @@ const Movimentos = () => {
     },
     { field: "quantidade", headerName: "Qtd", flex: 0.5 },
     {
-      field: "preco", headerName: "Preço", flex: 1,
-      renderCell: ({ row }) =>
-        row?.preco
-          ? `${Number(row.preco).toLocaleString("pt-AO")} Kz`
-          : "—",
-    },
-    {
       field: "documentoRef", headerName: "Ref. Doc.", flex: 1,
       renderCell: ({ row }) => row?.documentoRef ?? "—",
     },
@@ -162,13 +153,9 @@ const Movimentos = () => {
             inputProps={{ min: 1 }}
             sx={{ gridColumn: "span 2" }} />
 
-          <TextField fullWidth variant="outlined" label="Preço unitário (Kz)" type="number"
-            value={form.preco} onChange={set("preco")}
-            sx={{ gridColumn: "span 2" }} />
-
           <TextField fullWidth variant="outlined" label="Referência do documento"
             value={form.documentoRef} onChange={set("documentoRef")}
-            sx={{ gridColumn: "span 4" }} />
+            sx={{ gridColumn: "span 2" }} />
         </Box>
 
         <Box display="flex" justifyContent="space-between" alignItems="center" mt="20px">
