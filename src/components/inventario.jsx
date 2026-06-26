@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  Box, Button, TextField, useTheme,
+  Box, Button, TextField, useTheme, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Typography,
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
@@ -16,35 +16,30 @@ import InventoryOutlinedIcon from "@mui/icons-material/InventoryOutlined";
 import {
   getInventario, createInventario,
   updateInventario, deleteInventario,
+  getFornecedores,
 } from "../services/api";
 
 const schema = yup.object().shape({
-  codigo:      yup.string().required("Obrigatório"),
-  descricao:   yup.string().required("Obrigatório"),
-  unidadeBase: yup.string(),
-  preco:       yup.number().min(0).required("Obrigatório"),
-  quantidade:  yup.number().min(0).required("Obrigatório"),
-});
-
-const schemaEdicao = yup.object().shape({
-  descricao:   yup.string().required("Obrigatório"),
-  unidadeBase: yup.string(),
-  preco:       yup.number().min(0).required("Obrigatório"),
-  quantidade:  yup.number().min(0).required("Obrigatório"),
+  descricao:    yup.string().required("Obrigatório"),
+  unidadeBase:  yup.string(),
+  preco:        yup.number().min(0).required("Obrigatório"),
+  quantidade:   yup.number().min(0).required("Obrigatório"),
+  fornecedorId: yup.number().nullable(),
 });
 
 const inicial = {
-  codigo: "", descricao: "", descricao3: "",
+  descricao: "", descricao3: "",
   unidadeBase: "", preco: "", quantidade: 0,
+  fornecedorId: "",
 };
 
 const preparar = values => ({
-  codigo:      values.codigo,
-  descricao:   values.descricao,
-  descricao3:  values.descricao3 ?? "",
-  unidadeBase: values.unidadeBase,
-  preco:       Number(values.preco),
-  quantidade:  Number(values.quantidade),
+  descricao:    values.descricao,
+  descricao3:   values.descricao3 ?? "",
+  unidadeBase:  values.unidadeBase,
+  preco:        Number(values.preco),
+  quantidade:   Number(values.quantidade),
+  fornecedorId: values.fornecedorId !== "" ? Number(values.fornecedorId) : null,
 });
 
 const Inventario = () => {
@@ -52,19 +47,21 @@ const Inventario = () => {
   const cores = tokens(tema.palette.mode);
   const isNaoMobile = useMediaQuery("(min-width:600px)");
 
-  const [dados, setDados]     = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [search, setSearch]   = useState("");
+  const [dados, setDados]           = useState([]);
+  const [fornecedores, setFornecedores] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [modal, setModal]           = useState(false);
+  const [editing, setEditing]       = useState(null);
+  const [search, setSearch]         = useState("");
 
   const load = async () => {
     try {
       setLoading(true);
-      const data = await getInventario();
-      setDados(data ?? []);
-    } catch(e) {
-      console.error("Erro ao carregar inventário", e);
+      const [inv, forn] = await Promise.all([getInventario(), getFornecedores()]);
+      setDados(inv ?? []);
+      setFornecedores(forn ?? []);
+    } catch (e) {
+      console.error("Erro ao carregar dados", e);
     } finally {
       setLoading(false);
     }
@@ -78,7 +75,7 @@ const Inventario = () => {
       await load();
       resetForm();
       setModal(false);
-    } catch(e) {
+    } catch (e) {
       alert(e?.response?.data?.mensagem ?? "Erro ao criar produto");
     }
   };
@@ -88,7 +85,7 @@ const Inventario = () => {
       await updateInventario(editing.id, preparar(values));
       await load();
       setModal(false);
-    } catch(e) {
+    } catch (e) {
       alert(e?.response?.data?.mensagem ?? "Erro ao atualizar produto");
     }
   };
@@ -98,7 +95,7 @@ const Inventario = () => {
     try {
       await deleteInventario(id);
       await load();
-    } catch(e) {
+    } catch (e) {
       alert("Erro ao eliminar");
     }
   };
@@ -108,14 +105,16 @@ const Inventario = () => {
 
   const filtrado = dados.filter(d =>
     d.descricao?.toLowerCase().includes(search.toLowerCase()) ||
-    d.codigo?.toLowerCase().includes(search.toLowerCase())
+    d.fornecedorNome?.toLowerCase().includes(search.toLowerCase())
   );
 
   const colunas = [
-    { field: "id",          headerName: "ID",        flex: 0.3 },
-    { field: "codigo",      headerName: "Código",    flex: 1, cellClassName: "name-column--cell" },
-    { field: "descricao",   headerName: "Descrição", flex: 2 },
-    { field: "unidadeBase", headerName: "Unidade",   flex: 0.8 },
+    { field: "id",             headerName: "ID",         flex: 0.3 },
+    { field: "descricao",      headerName: "Descrição",  flex: 2 },
+    { field: "unidadeBase",    headerName: "Unidade",    flex: 0.8 },
+    { field: "fornecedorNome", headerName: "Fornecedor", flex: 1.2,
+      renderCell: ({ row }) => row.fornecedorNome ?? <span style={{ color: cores.grey[500] }}>—</span>,
+    },
     {
       field: "preco", headerName: "Preço (Kz)", flex: 1,
       renderCell: ({ row }) => row.preco ? `${Number(row.preco).toLocaleString()} Kz` : "—",
@@ -123,9 +122,9 @@ const Inventario = () => {
     {
       field: "quantidade", headerName: "Stock", flex: 0.8,
       renderCell: ({ row }) => {
-        if (row.quantidade === 0) return <span style={{ color: cores.redAccent[400] }}>Sem stock</span>
-        if (row.quantidade < 5)  return <span style={{ color: "#f0a500" }}>Baixo ({row.quantidade})</span>
-        return row.quantidade
+        if (row.quantidade === 0) return <span style={{ color: cores.redAccent[400] }}>Sem stock</span>;
+        if (row.quantidade < 5)  return <span style={{ color: "#f0a500" }}>Baixo ({row.quantidade})</span>;
+        return row.quantidade;
       },
     },
     {
@@ -147,49 +146,67 @@ const Inventario = () => {
     },
   ];
 
-  const CamposFormulario = ({ values, errors, touched, handleBlur, handleChange, isEdit }) => (
+  const CamposFormulario = ({ values, errors, touched, handleBlur, handleChange }) => (
     <Box display="grid" gap="20px"
       gridTemplateColumns="repeat(4, minmax(0, 1fr))"
       sx={{ "& > div": { gridColumn: isNaoMobile ? undefined : "span 4" } }}>
 
-      <TextField fullWidth variant="filled" label="Código"
-        name="codigo" value={values.codigo ?? ''}
-        onBlur={handleBlur} onChange={handleChange}
-        disabled={isEdit}
-        error={!!touched.codigo && !!errors.codigo}
-        helperText={touched.codigo && errors.codigo}
-        sx={{ gridColumn: "span 2" }} />
-
-      <TextField fullWidth variant="filled" label="Unidade"
-        name="unidadeBase" value={values.unidadeBase ?? ''}
-        onBlur={handleBlur} onChange={handleChange}
-        sx={{ gridColumn: "span 2" }} />
-
-      <TextField fullWidth variant="filled" label="Descrição"
-        name="descricao" value={values.descricao ?? ''}
+      <TextField fullWidth variant="outlined" label="Descrição"
+        name="descricao" value={values.descricao ?? ""}
         onBlur={handleBlur} onChange={handleChange}
         error={!!touched.descricao && !!errors.descricao}
         helperText={touched.descricao && errors.descricao}
-        sx={{ gridColumn: "span 4" }} />
+        sx={{ gridColumn: "span 3" }} />
 
-      <TextField fullWidth variant="filled" label="Descrição adicional (opcional)"
-        name="descricao3" value={values.descricao3 ?? ''}
+      <TextField select fullWidth variant="outlined" label="Unidade"
+        name="unidadeBase" value={values.unidadeBase ?? ""}
+        onBlur={handleBlur} onChange={handleChange}
+        sx={{ gridColumn: "span 1" }}>
+        {[
+          { valor: "UN",  label: "UN — Unidade"       },
+          { valor: "KG",  label: "KG — Quilograma"    },
+          { valor: "M",   label: "M — Metro"          },
+          { valor: "M2",  label: "M2 — Metro Quadrado"},
+          { valor: "M3",  label: "M3 — Metro Cúbico"  },
+          { valor: "ML",  label: "ML — Mililitro"     },
+          { valor: "LT",  label: "LT — Litro"         },
+          { valor: "TON", label: "TON — Tonelada"     },
+          { valor: "CJ",  label: "CJ — Conjunto"      },
+          { valor: "HR",  label: "HR — Hora"          },
+          { valor: "DIA", label: "DIA — Dia"          },
+        ].map(u => (
+          <MenuItem key={u.valor} value={u.valor}>{u.label}</MenuItem>
+        ))}
+      </TextField>
+
+      <TextField fullWidth variant="outlined" label="Descrição adicional (opcional)"
+        name="descricao3" value={values.descricao3 ?? ""}
         onChange={handleChange}
         sx={{ gridColumn: "span 4" }} />
 
-      <TextField fullWidth variant="filled" label="Preço de Custo (Kz)" type="number"
-        name="preco" value={values.preco ?? ''}
+      <TextField fullWidth variant="outlined" label="Preço de Custo (Kz)" type="number"
+        name="preco" value={values.preco ?? ""}
         onBlur={handleBlur} onChange={handleChange}
         error={!!touched.preco && !!errors.preco}
         helperText={touched.preco && errors.preco}
         sx={{ gridColumn: "span 2" }} />
 
-      <TextField fullWidth variant="filled" label="Quantidade em Stock" type="number"
+      <TextField fullWidth variant="outlined" label="Quantidade em Stock" type="number"
         name="quantidade" value={values.quantidade ?? 0}
         onBlur={handleBlur} onChange={handleChange}
         error={!!touched.quantidade && !!errors.quantidade}
         helperText={touched.quantidade && errors.quantidade}
         sx={{ gridColumn: "span 2" }} />
+
+      <TextField select fullWidth variant="outlined" label="Fornecedor"
+        name="fornecedorId" value={values.fornecedorId ?? ""}
+        onBlur={handleBlur} onChange={handleChange}
+        sx={{ gridColumn: "span 4" }}>
+        <MenuItem value=""><em>Sem fornecedor</em></MenuItem>
+        {fornecedores.map(f => (
+          <MenuItem key={f.id} value={f.id}>{f.nome}</MenuItem>
+        ))}
+      </TextField>
     </Box>
   );
 
@@ -206,14 +223,14 @@ const Inventario = () => {
           {({ values, errors, touched, handleBlur, handleChange, handleSubmit }) => (
             <form onSubmit={handleSubmit}>
               <CamposFormulario values={values} errors={errors} touched={touched}
-                handleBlur={handleBlur} handleChange={handleChange} isEdit={false} />
+                handleBlur={handleBlur} handleChange={handleChange} />
               <Box display="flex" justifyContent="space-between" alignItems="center" mt="20px">
                 <TextField
-                  placeholder="Pesquisar por código ou descrição..."
+                  placeholder="Pesquisar por descrição ou fornecedor..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   size="small"
-                  sx={{ width: "300px" }}
+                  sx={{ width: "320px" }}
                 />
                 <Button type="submit" variant="contained"
                   sx={{ backgroundColor: cores.blueAccent[600], color: cores.grey[100], fontWeight: "bold", padding: "10px 20px" }}>
@@ -230,7 +247,6 @@ const Inventario = () => {
       <Box height="50vh" sx={{
         "& .MuiDataGrid-root": { border: "none" },
         "& .MuiDataGrid-cell": { borderBottom: "none" },
-        "& .name-column--cell": { color: cores.greenAccent[300] },
         "& .MuiDataGrid-columnHeaders": { backgroundColor: cores.blueAccent[700], borderBottom: "none" },
         "& .MuiDataGrid-virtualScroller": { backgroundColor: cores.primary[400] },
         "& .MuiDataGrid-footerContainer": { borderTop: "none", backgroundColor: cores.blueAccent[700] },
@@ -253,20 +269,20 @@ const Inventario = () => {
           <Formik
             onSubmit={handleEditar}
             initialValues={{
-              codigo:      editing.codigo      ?? '',
-              descricao:   editing.descricao   ?? '',
-              descricao3:  editing.descricao3  ?? '',
-              unidadeBase: editing.unidadeBase ?? '',
-              preco:       editing.preco       ?? '',
-              quantidade:  editing.quantidade  ?? 0,
+              descricao:    editing.descricao   ?? "",
+              descricao3:   editing.descricao3  ?? "",
+              unidadeBase:  editing.unidadeBase ?? "",
+              preco:        editing.preco       ?? "",
+              quantidade:   editing.quantidade  ?? 0,
+              fornecedorId: editing.fornecedorId ?? "",
             }}
-            validationSchema={schemaEdicao}
+            validationSchema={schema}
           >
             {({ values, errors, touched, handleBlur, handleChange, handleSubmit }) => (
               <form onSubmit={handleSubmit}>
                 <DialogContent sx={{ backgroundColor: cores.primary[400] }}>
                   <CamposFormulario values={values} errors={errors} touched={touched}
-                    handleBlur={handleBlur} handleChange={handleChange} isEdit={true} />
+                    handleBlur={handleBlur} handleChange={handleChange} />
                 </DialogContent>
                 <DialogActions sx={{ backgroundColor: cores.primary[400], p: "15px 20px" }}>
                   <Button onClick={() => setModal(false)} variant="outlined"
