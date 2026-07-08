@@ -39,6 +39,7 @@ const emptyForm = {
   utilizadorId:     "",
   maquinaVeiculoId: "",
   inventarioId:     "",
+  quantidade:       1,
 }
 
 const Manutencoes = () => {
@@ -107,6 +108,7 @@ const Manutencoes = () => {
         utilizadorId:     form.utilizadorId     ? Number(form.utilizadorId)     : null,
         maquinaVeiculoId: form.maquinaVeiculoId ? Number(form.maquinaVeiculoId) : null,
         inventarioId:     form.inventarioId     ? Number(form.inventarioId)     : null,
+        quantidade:       form.inventarioId     ? Number(form.quantidade)       : null,
       });
       setModal(false);
       setForm(emptyForm);
@@ -328,6 +330,16 @@ const Manutencoes = () => {
               </MenuItem>
             ))}
           </TextField>
+          <TextField
+  label="Quantidade de Peças Utilizadas"
+  type="number"
+  value={form.quantidade}
+  onChange={set('quantidade')}
+  fullWidth
+  inputProps={{ min: 1 }}
+  disabled={!form.inventarioId}
+  helperText={!form.inventarioId ? "Selecciona primeiro uma peça de inventário" : ""}
+/>
 
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

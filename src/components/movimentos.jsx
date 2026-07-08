@@ -11,7 +11,10 @@ import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import SwapHorizOutlinedIcon from "@mui/icons-material/SwapHorizOutlined";
 import { getMovimentos, createMovimento, getInventario } from "../services/api";
 
-const tipos = ["ENTRADA", "SAIDA", "TRANSFERENCIA", "AJUSTE"];
+
+
+
+const tipos = ["ENTRADA", "SAIDA"];
 
 const empty = {
   tipoMovimento: "ENTRADA",
@@ -19,6 +22,7 @@ const empty = {
   quantidade:    1,
   documentoRef:  "",
 };
+
 
 const Movimentos = () => {
   const tema = useTheme();
@@ -74,8 +78,6 @@ const Movimentos = () => {
   const COR_TIPO = {
     ENTRADA:       cores.greenAccent[600],
     SAIDA:         cores.redAccent[600],
-    TRANSFERENCIA: cores.blueAccent[500],
-    AJUSTE:        "#f0a500",
   }
 
   const filtrado = data
