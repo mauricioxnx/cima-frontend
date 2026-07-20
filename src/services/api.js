@@ -100,6 +100,8 @@ export const getAtrasadas = () =>
   api.get('/manutencoes/atrasadas').then(r => r.data.dados)
 export const getProximas = (dias = 7) =>
   api.get(`/manutencoes/proximas?dias=${dias}`).then(r => r.data.dados)
+export const getManutencoesPorMaquina = (maquinaId) =>
+  api.get(`/manutencoes/maquina/${maquinaId}`).then(r => r.data.dados ?? r.data);
 
 // ── Tarefas ───────────────────────────────────────────
 export const getTarefas = () =>

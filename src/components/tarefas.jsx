@@ -21,16 +21,16 @@ const COR_ESTADO = {
   EM_CURSO:  "#4d9fff",
   CONCLUIDA: "#4dffa3",
   CANCELADA: "#9e9e9e",
-}
+};
 
 const estadoColor = estado => {
-  switch(estado) {
+  switch (estado) {
     case "PENDENTE":  return "warning";
     case "EM_CURSO":  return "info";
     case "CONCLUIDA": return "success";
     default:          return "default";
   }
-}
+};
 
 const Tarefas = () => {
   const tema = useTheme();
@@ -38,16 +38,16 @@ const Tarefas = () => {
   const isNaoMobile = useMediaQuery("(min-width:600px)");
   const { user } = useAuth();
 
-  const perfil = user?.perfil ?? user?.perfilNome ?? ''
-  const isTecnico = perfil.toUpperCase() === 'TECNICO'
+  const perfil = user?.perfil ?? user?.perfilNome ?? "";
+  const isTecnico = perfil.toUpperCase() === "TECNICO";
 
-  const [data, setData]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter]   = useState("TODOS");
-  const [search, setSearch]   = useState("");
-  const [detalhe, setDetalhe] = useState(null);
-  const [descricao, setDescricao] = useState("");
-  const [saving, setSaving]   = useState(false);
+  const [data, setData]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState("TODOS");
+  const [search, setSearch]       = useState("");
+  const [detalhe, setDetalhe]     = useState(null);
+  const [observacao, setObservacao] = useState(""); // ✅ campo editável
+  const [saving, setSaving]       = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -55,13 +55,12 @@ const Tarefas = () => {
       let manutencoes = await getManutencoes();
       manutencoes = manutencoes ?? [];
 
-      // ✅ técnico só vê as manutenções atribuídas a ele
       if (isTecnico && user?.id) {
-        manutencoes = manutencoes.filter(m => m.utilizadorId === user.id)
+        manutencoes = manutencoes.filter(m => m.utilizadorId === user.id);
       }
 
       setData(manutencoes);
-    } catch(e) {
+    } catch (e) {
       console.error("Erro ao carregar tarefas", e);
       setData([]);
     }
@@ -72,7 +71,7 @@ const Tarefas = () => {
 
   const abrirDetalhe = (row) => {
     setDetalhe(row);
-    setDescricao(row.descricao ?? "");
+    setObservacao(row.observacao ?? ""); // ✅ carrega observacao, não descricao
   };
 
   const handleGuardar = async () => {
@@ -82,7 +81,8 @@ const Tarefas = () => {
       await updateManutencao(detalhe.id, {
         idTipo:           detalhe.idTipo,
         dataAgendada:     detalhe.dataAgendada,
-        descricao:        descricao,
+        descricao:        detalhe.descricao,      // ✅ descricao original — nunca alterada
+        observacao:       observacao,              // ✅ apenas observacao é enviada pelo técnico
         estado:           detalhe.estado,
         utilizadorId:     detalhe.utilizadorId     ?? null,
         tipoManutencaoId: detalhe.tipoManutencaoId ?? null,
@@ -91,7 +91,7 @@ const Tarefas = () => {
       });
       await load();
       setDetalhe(null);
-    } catch(e) {
+    } catch (e) {
       alert(e?.response?.data?.mensagem ?? "Erro ao guardar");
     } finally {
       setSaving(false);
@@ -269,13 +269,36 @@ const Tarefas = () => {
             </Typography>
           </Box>
 
-          {/* DESCRIÇÃO EDITÁVEL */}
+          {/* ✅ DESCRIÇÃO — apenas leitura, não editável */}
           <TextField
-            label="Descrição / Observações da intervenção"
-            value={descricao}
-            onChange={e => setDescricao(e.target.value)}
-            fullWidth multiline rows={4}
+            label="Descrição da Manutenção"
+            value={detalhe?.descricao ?? ""}
+            fullWidth
+            multiline
+            rows={2}
+            disabled
+            helperText="A descrição é definida na criação e não pode ser alterada."
+            sx={{
+              "& .MuiInputBase-input.Mui-disabled": {
+                WebkitTextFillColor: "#333",
+                cursor: "not-allowed",
+              },
+              "& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#ccc",
+              },
+            }}
+          />
+
+          {/* ✅ OBSERVAÇÃO — editável pelo técnico */}
+          <TextField
+            label="Observações da Intervenção"
+            value={observacao}
+            onChange={e => setObservacao(e.target.value)}
+            fullWidth
+            multiline
+            rows={4}
             placeholder="Descreve o trabalho realizado, peças utilizadas, problemas encontrados..."
+            helperText="Regista aqui as observações e detalhes da intervenção efectuada."
           />
 
           {/* ACÇÕES DE ESTADO */}
@@ -305,7 +328,7 @@ const Tarefas = () => {
           </Button>
           <Button variant="contained" onClick={handleGuardar} disabled={saving}
             sx={{ backgroundColor: cores.blueAccent[600] }}>
-            {saving ? "A guardar..." : "Guardar Descrição"}
+            {saving ? "A guardar..." : "Guardar Observação"}
           </Button>
         </DialogActions>
       </Dialog>

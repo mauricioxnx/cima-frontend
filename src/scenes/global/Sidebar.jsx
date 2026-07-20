@@ -22,8 +22,8 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 
 const PERMISSOES = {
   ADMINISTRADOR:      ['dashboard','utilizadores','perfis','inventario','fornecedores','movimentos','manutencoes','tarefas','maquinas','historico','relatorios'],
-  GERENTE_STOCK:      ['dashboard','inventario','fornecedores','movimentos','historico'],
-  GERENTE_MANUTENCAO: ['dashboard','manutencoes','tarefas','maquinas','historico'],
+  GERENTE_STOCK:      ['dashboard','inventario','fornecedores','movimentos'],
+  GERENTE_MANUTENCAO: ['dashboard','manutencoes','tarefas','maquinas'],
   TECNICO:            ['dashboard','tarefas'],
 }
 

@@ -7,13 +7,15 @@ import listPlugin from "@fullcalendar/list";
 import {
   Box, List, ListItem, ListItemText, Typography,
   Button, Chip, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem
+  DialogActions, TextField, MenuItem, Tooltip,
 } from "@mui/material";
+import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import Header from "../../components/Header";
 import {
   getManutencoes, createManutencao,
   updateEstadoManutencao, deleteManutencao,
-  getUtilizadores, getMaquinas, getInventario
+  getUtilizadores, getMaquinas, getInventario,
 } from "../../services/api";
 
 const COR_ESTADO = {
@@ -21,13 +23,13 @@ const COR_ESTADO = {
   EM_CURSO:  "#4d9fff",
   CONCLUIDA: "#4dffa3",
   CANCELADA: "#9e9e9e",
-}
+};
 
 const TIPOS_MANUTENCAO = [
   { id: 1, nome: "PREVENTIVA" },
   { id: 2, nome: "CORRETIVA"  },
   { id: 3, nome: "PREDITIVA"  },
-]
+];
 
 const emptyForm = {
   idTipo:           "PREVENTIVA",
@@ -40,16 +42,16 @@ const emptyForm = {
   maquinaVeiculoId: "",
   inventarioId:     "",
   quantidade:       1,
-}
+};
 
 const Manutencoes = () => {
-  const [eventos, setEventos]           = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [modal, setModal]               = useState(false);
-  const [form, setForm]                 = useState(emptyForm);
-  const [tecnicos, setTecnicos]         = useState([]);
-  const [maquinas, setMaquinas]         = useState([]);
-  const [inventario, setInventario]     = useState([]);
+  const [eventos, setEventos]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [modal, setModal]           = useState(false);
+  const [form, setForm]             = useState(emptyForm);
+  const [tecnicos, setTecnicos]     = useState([]);
+  const [maquinas, setMaquinas]     = useState([]);
+  const [inventario, setInventario] = useState([]);
 
   const carregar = async () => {
     try {
@@ -63,7 +65,7 @@ const Manutencoes = () => {
 
       const formatado = (manut ?? []).map(m => ({
         id:              String(m.id),
-        title:           `${m.tipoManutencaoNome ?? m.idTipo} — ${m.maquinaVeiculoModelo ?? ''}`,
+        title:           `${m.tipoManutencaoNome ?? m.idTipo} — ${m.maquinaVeiculoModelo ?? ""}`,
         start:           m.dataAgendada,
         end:             m.dataExecucao ?? m.dataAgendada,
         allDay:          true,
@@ -74,15 +76,10 @@ const Manutencoes = () => {
       }));
 
       setEventos(formatado);
-
-      // ✅ apenas utilizadores com perfil TECNICO
-      setTecnicos((utils ?? []).filter(
-        u => u.perfilNome?.toUpperCase() === "TECNICO"
-      ));
-
+      setTecnicos((utils ?? []).filter(u => u.perfilNome?.toUpperCase() === "TECNICO"));
       setMaquinas(maqs ?? []);
       setInventario(inv ?? []);
-    } catch(e) {
+    } catch (e) {
       console.error("Erro ao carregar manutenções", e);
     } finally {
       setLoading(false);
@@ -104,7 +101,7 @@ const Manutencoes = () => {
         dataAgendada:     form.dataAgendada,
         dataExecucao:     form.dataExecucao || null,
         descricao:        form.descricao,
-        estado:           "PENDENTE", // ✅ sempre PENDENTE
+        estado:           "PENDENTE",
         utilizadorId:     form.utilizadorId     ? Number(form.utilizadorId)     : null,
         maquinaVeiculoId: form.maquinaVeiculoId ? Number(form.maquinaVeiculoId) : null,
         inventarioId:     form.inventarioId     ? Number(form.inventarioId)     : null,
@@ -113,31 +110,34 @@ const Manutencoes = () => {
       setModal(false);
       setForm(emptyForm);
       await carregar();
-    } catch(e) {
+    } catch (e) {
       alert(e?.response?.data?.mensagem ?? "Erro ao criar manutenção");
     }
   };
 
-  const aoClicarEvento = async (selecionado) => {
-    const m = selecionado.event.extendedProps;
-    const acao = window.confirm(
-      `${selecionado.event.title}\nEstado: ${m.estado}\nData: ${m.dataAgendada}\n\nOK = ELIMINAR | Cancelar = fechar`
-    );
-    if (acao) {
-      try {
-        await deleteManutencao(selecionado.event.id);
-        await carregar();
-      } catch(e) {
-        alert("Erro ao eliminar manutenção");
-      }
+  const handleEliminar = async (id) => {
+    if (!window.confirm("Tens a certeza que queres eliminar esta manutenção?")) return;
+    try {
+      await deleteManutencao(id);
+      await carregar();
+    } catch (e) {
+      alert("Erro ao eliminar manutenção");
     }
+  };
+
+  // clique no calendário — só abre detalhes, sem eliminar
+  const aoClicarEvento = (selecionado) => {
+    const m = selecionado.event.extendedProps;
+    alert(
+      `${selecionado.event.title}\nEstado: ${m.estado}\nData: ${m.dataAgendada}\n${m.descricao ?? ""}`
+    );
   };
 
   const mudarEstado = async (id, estado) => {
     try {
       await updateEstadoManutencao(id, estado);
       await carregar();
-    } catch(e) {
+    } catch (e) {
       alert("Erro ao atualizar estado");
     }
   };
@@ -160,11 +160,24 @@ const Manutencoes = () => {
           maxHeight="75vh"
           border="1px solid #e0e0e0"
         >
-          <Typography variant="h5" mb="10px" color="#333" fontWeight="600">
-            Manutenções ({eventos.length})
-          </Typography>
+          {/* cabeçalho da lista com botão Adicionar */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb="10px">
+            <Typography variant="h5" color="#333" fontWeight="600">
+              Manutenções ({eventos.length})
+            </Typography>
+            <Tooltip title="Nova manutenção">
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => { setForm(emptyForm); setModal(true); }}
+                sx={{ minWidth: "36px", padding: "4px 10px", bgcolor: "#4d9fff" }}
+              >
+                <AddOutlinedIcon fontSize="small" />
+              </Button>
+            </Tooltip>
+          </Box>
 
-          <List>
+          <List disablePadding>
             {eventos.length === 0 ? (
               <Typography color="#999" fontSize="13px">
                 Sem manutenções registadas.
@@ -181,6 +194,7 @@ const Manutencoes = () => {
                   alignItems: "flex-start",
                   gap: "6px",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  p: "10px",
                 }}>
                   <ListItemText
                     primaryTypographyProps={{ component: "div" }}
@@ -213,7 +227,8 @@ const Manutencoes = () => {
                     }
                   />
 
-                  <Box display="flex" gap="5px" flexWrap="wrap">
+                  {/* botões de estado + eliminar */}
+                  <Box display="flex" gap="5px" flexWrap="wrap" width="100%">
                     {m.estado === "PENDENTE" && (
                       <Button size="small" variant="contained"
                         sx={{ fontSize: "10px", py: "2px", px: "8px", bgcolor: "#4d9fff" }}
@@ -235,6 +250,15 @@ const Manutencoes = () => {
                         Cancelar
                       </Button>
                     )}
+                    {/* ✅ botão eliminar */}
+                    <Tooltip title="Eliminar manutenção">
+                      <Button size="small" variant="outlined"
+                        sx={{ fontSize: "10px", py: "2px", px: "8px", ml: "auto",
+                              color: "#f44336", borderColor: "#f44336" }}
+                        onClick={() => handleEliminar(m.id)}>
+                        <DeleteOutlinedIcon sx={{ fontSize: "14px" }} />
+                      </Button>
+                    </Tooltip>
                   </Box>
                 </ListItem>
               );
@@ -268,15 +292,10 @@ const Manutencoes = () => {
         <DialogTitle>Nova Manutenção</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: "12px", pt: "16px !important" }}>
 
-          {/* ✅ Um único select unificado de tipo */}
           <TextField select label="Tipo de Manutenção" value={form.tipoManutencaoId}
             onChange={e => {
               const t = TIPOS_MANUTENCAO.find(t => t.id === Number(e.target.value));
-              setForm(f => ({
-                ...f,
-                tipoManutencaoId: e.target.value,
-                idTipo: t?.nome ?? "PREVENTIVA",
-              }));
+              setForm(f => ({ ...f, tipoManutencaoId: e.target.value, idTipo: t?.nome ?? "PREVENTIVA" }));
             }} fullWidth>
             {TIPOS_MANUTENCAO.map(t => (
               <MenuItem key={t.id} value={t.id}>{t.nome}</MenuItem>
@@ -284,27 +303,20 @@ const Manutencoes = () => {
           </TextField>
 
           <TextField label="Descrição" value={form.descricao}
-            onChange={set('descricao')} fullWidth multiline rows={2} />
+            onChange={set("descricao")} fullWidth multiline rows={2} />
 
           <Box display="grid" gridTemplateColumns="1fr 1fr" gap="12px">
             <TextField label="Data Agendada" type="date" value={form.dataAgendada}
-              onChange={set('dataAgendada')} fullWidth InputLabelProps={{ shrink: true }} />
+              onChange={set("dataAgendada")} fullWidth InputLabelProps={{ shrink: true }} />
             <TextField label="Data Execução" type="date" value={form.dataExecucao}
-              onChange={set('dataExecucao')} fullWidth InputLabelProps={{ shrink: true }} />
+              onChange={set("dataExecucao")} fullWidth InputLabelProps={{ shrink: true }} />
           </Box>
 
-          {/* ✅ Estado fixo PENDENTE — apenas informativo */}
-          <TextField
-            label="Estado"
-            value="PENDENTE"
-            fullWidth
-            disabled
-            helperText="Novas manutenções começam sempre como PENDENTE"
-          />
+          <TextField label="Estado" value="PENDENTE" fullWidth disabled
+            helperText="Novas manutenções começam sempre como PENDENTE" />
 
-          {/* ✅ Apenas técnicos */}
           <TextField select label="Técnico Responsável" value={form.utilizadorId}
-            onChange={set('utilizadorId')} fullWidth>
+            onChange={set("utilizadorId")} fullWidth>
             <MenuItem value="">— Nenhum —</MenuItem>
             {tecnicos.map(u => (
               <MenuItem key={u.id} value={u.id}>{u.nome}</MenuItem>
@@ -312,35 +324,35 @@ const Manutencoes = () => {
           </TextField>
 
           <TextField select label="Máquina / Veículo" value={form.maquinaVeiculoId}
-            onChange={set('maquinaVeiculoId')} fullWidth>
+            onChange={set("maquinaVeiculoId")} fullWidth>
             <MenuItem value="">— Nenhuma —</MenuItem>
             {maquinas.map(m => (
               <MenuItem key={m.id} value={m.id}>
-                {m.modelo} — {m.matriculaNSerie ?? ''}
+                {m.modelo} — {m.matriculaNSerie ?? ""}
               </MenuItem>
             ))}
           </TextField>
 
           <TextField select label="Peça de Inventário" value={form.inventarioId}
-            onChange={set('inventarioId')} fullWidth>
+            onChange={set("inventarioId")} fullWidth>
             <MenuItem value="">— Nenhuma —</MenuItem>
             {inventario.map(i => (
               <MenuItem key={i.id} value={i.id}>
-                {i.codigo} — {i.descricao}
+                {i.descricao}
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-  label="Quantidade de Peças Utilizadas"
-  type="number"
-  value={form.quantidade}
-  onChange={set('quantidade')}
-  fullWidth
-  inputProps={{ min: 1 }}
-  disabled={!form.inventarioId}
-  helperText={!form.inventarioId ? "Selecciona primeiro uma peça de inventário" : ""}
-/>
 
+          <TextField
+            label="Quantidade de Peças Utilizadas"
+            type="number"
+            value={form.quantidade}
+            onChange={set("quantidade")}
+            fullWidth
+            inputProps={{ min: 1 }}
+            disabled={!form.inventarioId}
+            helperText={!form.inventarioId ? "Selecciona primeiro uma peça de inventário" : ""}
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setModal(false)}>Cancelar</Button>

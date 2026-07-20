@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Box, Button, Typography, TextField, useTheme,
+  Box, Button, Typography, useTheme,
   Paper, Grid, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip,
 } from "@mui/material";
@@ -8,357 +8,336 @@ import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import {
-  getRelatorioManutencao, getRelatorioMovimentos,
-  getRelatorioInventario, getRelatorioUtilizadores,
-  getInventario, getManutencoes, getMovimentos, getUtilizadores,
+  getInventario, getManutencoes, getMovimentos,
+  getUtilizadores, getFornecedores, getMaquinas,
 } from "../../services/api";
-
-const COR = {
-  inventario:   "#4d9fff",
-  utilizadores: "#4dffa3",
-  manutencao:   "#ffc84d",
-  movimentos:   "#ff7043",
-}
 
 const Relatorio = () => {
   const tema = useTheme();
   const cores = tokens(tema.palette.mode);
 
   const [activeRel, setActiveRel] = useState(null);
-  const [resumo, setResumo]       = useState(null);
   const [registos, setRegistos]   = useState([]);
+  const [resumo, setResumo]       = useState(null);
   const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [dates, setDates]         = useState({ inicio: "", fim: "" });
 
   const runRelatorio = async (type) => {
     setLoading(true);
-    setResumo(null);
-    setRegistos([]);
-    setError(null);
     setActiveRel(type);
+    setRegistos([]);
+    setResumo(null);
 
     try {
-      let resumoData, registosData;
+      let data = [];
 
       if (type === "inventario") {
-        [resumoData, registosData] = await Promise.all([
-          getRelatorioInventario(),
-          getInventario(),
-        ]);
-      }
-      if (type === "utilizadores") {
-        [resumoData, registosData] = await Promise.all([
-          getRelatorioUtilizadores(),
-          getUtilizadores(),
-        ]);
-      }
-      if (type === "manutencao") {
-        [resumoData, registosData] = await Promise.all([
-          getRelatorioManutencao(dates.inicio, dates.fim),
-          getManutencoes(),
-        ]);
-      }
-      if (type === "movimentos") {
-        [resumoData, registosData] = await Promise.all([
-          getRelatorioMovimentos(dates.inicio, dates.fim),
-          getMovimentos(),
-        ]);
+        data = await getInventario();
+        setResumo({
+          total:      data.length,
+          semStock:   data.filter(d => d.quantidade === 0).length,
+          stockBaixo: data.filter(d => d.quantidade > 0 && d.quantidade < 5).length,
+          totalUnidades: data.reduce((s, d) => s + (d.quantidade ?? 0), 0),
+        });
       }
 
-      setResumo(resumoData);
-      setRegistos(registosData ?? []);
+      if (type === "utilizadores") {
+        data = await getUtilizadores();
+        setResumo({
+          total:    data.length,
+          ativos:   data.filter(d => d.ativo).length,
+          inativos: data.filter(d => !d.ativo).length,
+        });
+      }
+
+      if (type === "manutencoes") {
+        data = await getManutencoes();
+        setResumo({
+          total:     data.length,
+          pendentes: data.filter(d => d.estado === "PENDENTE").length,
+          emCurso:   data.filter(d => d.estado === "EM_CURSO").length,
+          concluidas: data.filter(d => d.estado === "CONCLUIDA").length,
+          canceladas: data.filter(d => d.estado === "CANCELADA").length,
+        });
+      }
+
+      if (type === "movimentos") {
+        data = await getMovimentos();
+        setResumo({
+          total:    data.length,
+          entradas: data.filter(d => d.tipoMovimento === "ENTRADA").reduce((s, d) => s + (d.quantidade ?? 0), 0),
+          saidas:   data.filter(d => d.tipoMovimento === "SAIDA").reduce((s, d) => s + (d.quantidade ?? 0), 0),
+        });
+      }
+
+      if (type === "fornecedores") {
+        data = await getFornecedores();
+        const categorias = [...new Set(data.map(d => d.categoria).filter(Boolean))];
+        setResumo({
+          total:      data.length,
+          categorias: categorias.length,
+        });
+      }
+
+      if (type === "maquinas") {
+        data = await getMaquinas();
+        setResumo({
+          total:        data.length,
+          activas:      data.filter(d => d.estado === "ACTIVO").length,
+          manutencao:   data.filter(d => d.estado === "EM_MANUTENCAO").length,
+          inactivas:    data.filter(d => d.estado === "INACTIVO").length,
+        });
+      }
+
+      setRegistos(data ?? []);
     } catch(e) {
-      setError("Erro ao carregar relatório");
+      console.error("Erro ao carregar relatório", e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const relatorios = [
-    { key: "inventario",   label: "Inventário",   needsDates: false },
-    { key: "utilizadores", label: "Utilizadores", needsDates: false },
-    { key: "manutencao",   label: "Manutenções",  needsDates: true  },
-    { key: "movimentos",   label: "Movimentos",   needsDates: true  },
+    { key: "inventario",   label: "Inventário",    cor: "#4d9fff" },
+    { key: "utilizadores", label: "Utilizadores",  cor: "#4dffa3" },
+    { key: "manutencoes",  label: "Manutenções",   cor: "#ffc84d" },
+    { key: "movimentos",   label: "Movimentos",    cor: "#ff7043" },
+    { key: "fornecedores", label: "Fornecedores",  cor: "#ce93d8" },
+    { key: "maquinas",     label: "Máquinas",      cor: "#80cbc4" },
   ];
 
   // ── Colunas por tipo ──────────────────────────────────
-  const colunasInventario = [
-    { key: "codigo",      label: "Código"    },
-    { key: "descricao",   label: "Descrição" },
-    { key: "unidadeBase", label: "Unidade"   },
-    { key: "preco",       label: "Preço (Kz)", render: v => v ? `${Number(v).toLocaleString()} Kz` : "—" },
-    { key: "quantidade",  label: "Stock",
-      render: (v) => v === 0
-        ? <Chip label="Sem stock" size="small" color="error" />
-        : v < 5
-          ? <Chip label={`Baixo (${v})`} size="small" color="warning" />
-          : v
-    },
-  ];
-
-  const colunasUtilizadores = [
-    { key: "id",         label: "ID"      },
-    { key: "nome",       label: "Nome"    },
-    { key: "email",      label: "Email"   },
-    { key: "telefone",   label: "Telefone" },
-    { key: "perfilNome", label: "Perfil"  },
-    { key: "ativo",      label: "Activo",
-      render: v => <Chip label={v ? "Sim" : "Não"} size="small" color={v ? "success" : "default"} />
-    },
-  ];
-
-  const colunasManutencao = [
-    { key: "id",                  label: "ID"        },
-    { key: "tipoManutencaoNome",  label: "Tipo",     render: (v, r) => v ?? r.idTipo ?? "—" },
-    { key: "descricao",           label: "Descrição" },
-    { key: "maquinaVeiculoModelo",label: "Máquina"   },
-    { key: "utilizadorNome",      label: "Técnico"   },
-    { key: "dataAgendada",        label: "Data"      },
-    { key: "estado",              label: "Estado",
-      render: v => {
-        const cor = { PENDENTE: "warning", EM_CURSO: "info", CONCLUIDA: "success", CANCELADA: "default" }
-        return <Chip label={v} size="small" color={cor[v] ?? "default"} />
-      }
-    },
-  ];
-
-  const colunasMovimentos = [
-    { key: "idMovimento",          label: "ID"       },
-    { key: "tipoMovimento",        label: "Tipo",
-      render: v => {
-        const cor = { ENTRADA: "#4dffa3", SAIDA: "#ff5f5f", TRANSFERENCIA: "#4d9fff", AJUSTE: "#ffc84d" }
-        return <Chip label={v} size="small" sx={{ background: cor[v], color: "#000" }} />
-      }
-    },
-    { key: "inventarioDescricao",  label: "Produto"  },
-    { key: "quantidade",           label: "Qtd"      },
-    { key: "documentoRef",         label: "Ref. Doc.", render: v => v ?? "—" },
-    { key: "dataMovimento",        label: "Data",
-      render: v => v ? new Date(v).toLocaleDateString("pt-AO") : "—"
-    },
-  ];
-
   const colunasMap = {
-    inventario:   colunasInventario,
-    utilizadores: colunasUtilizadores,
-    manutencao:   colunasManutencao,
-    movimentos:   colunasMovimentos,
+    inventario: [
+      { key: "codigo",      label: "Código"    },
+      { key: "descricao",   label: "Descrição" },
+      { key: "unidadeBase", label: "Unidade"   },
+      { key: "preco",       label: "Preço (Kz)", render: v => v ? `${Number(v).toLocaleString()} Kz` : "—" },
+      { key: "quantidade",  label: "Stock",
+        render: v => v === 0
+          ? <Chip label="Sem stock" size="small" color="error" />
+          : v < 5
+            ? <Chip label={`Baixo (${v})`} size="small" color="warning" />
+            : v
+      },
+    ],
+    utilizadores: [
+      { key: "id",         label: "ID"       },
+      { key: "nome",       label: "Nome"     },
+      { key: "email",      label: "Email"    },
+      { key: "telefone",   label: "Telefone" },
+      { key: "perfilNome", label: "Perfil"   },
+      { key: "ativo",      label: "Activo",
+        render: v => <Chip label={v ? "Sim" : "Não"} size="small" color={v ? "success" : "default"} />
+      },
+    ],
+    manutencoes: [
+      { key: "id",                   label: "ID"        },
+      { key: "tipoManutencaoNome",   label: "Tipo",     render: (v, r) => v ?? r.idTipo ?? "—" },
+      { key: "descricao",            label: "Descrição" },
+      { key: "maquinaVeiculoModelo", label: "Máquina"   },
+      { key: "utilizadorNome",       label: "Técnico"   },
+      { key: "dataAgendada",         label: "Data"      },
+      { key: "estado",               label: "Estado",
+        render: v => {
+          const cor = { PENDENTE: "warning", EM_CURSO: "info", CONCLUIDA: "success", CANCELADA: "default" }
+          return <Chip label={v} size="small" color={cor[v] ?? "default"} />
+        }
+      },
+    ],
+    movimentos: [
+      { key: "idMovimento",         label: "ID"       },
+      { key: "tipoMovimento",       label: "Tipo",
+        render: v => {
+          const cor = { ENTRADA: "#4dffa3", SAIDA: "#ff5f5f" }
+          return <Chip label={v} size="small" sx={{ background: cor[v] ?? "#9e9e9e", color: "#000" }} />
+        }
+      },
+      { key: "inventarioDescricao", label: "Produto"  },
+      { key: "quantidade",          label: "Qtd"      },
+      { key: "documentoRef",        label: "Ref. Doc.", render: v => v ?? "—" },
+      { key: "dataMovimento",       label: "Data",
+        render: v => v ? new Date(v).toLocaleDateString("pt-AO") : "—"
+      },
+    ],
+    fornecedores: [
+      { key: "id",        label: "ID"        },
+      { key: "nome",      label: "Nome"      },
+      { key: "nif",       label: "NIF"       },
+      { key: "telefone",  label: "Telefone"  },
+      { key: "email",     label: "Email"     },
+      { key: "categoria", label: "Categoria" },
+      { key: "endereco",  label: "Endereço"  },
+    ],
+    maquinas: [
+      { key: "id",              label: "ID"               },
+      { key: "modelo",          label: "Modelo"           },
+      { key: "tipo",            label: "Tipo"             },
+      { key: "matriculaNSerie", label: "Matrícula/Série"  },
+      { key: "dataAquisicao",   label: "Data Aquisição"   },
+      { key: "estado",          label: "Estado",
+        render: v => {
+          const cor = { ACTIVO: "success", EM_MANUTENCAO: "warning", INACTIVO: "default" }
+          return <Chip label={v} size="small" color={cor[v] ?? "default"} />
+        }
+      },
+    ],
+  };
+
+  const ResumoCards = () => {
+    if (!resumo) return null;
+    const cards = {
+      inventario: [
+        { label: "Total Produtos",   value: resumo.total,         cor: "#4d9fff" },
+        { label: "Sem Stock",        value: resumo.semStock,      cor: "#ff5f5f" },
+        { label: "Stock Baixo",      value: resumo.stockBaixo,    cor: "#ffc84d" },
+        { label: "Total Unidades",   value: resumo.totalUnidades, cor: "#4dffa3" },
+      ],
+      utilizadores: [
+        { label: "Total",    value: resumo.total,    cor: "#4dffa3" },
+        { label: "Activos",  value: resumo.ativos,   cor: "#4d9fff" },
+        { label: "Inactivos",value: resumo.inativos, cor: "#9e9e9e" },
+      ],
+      manutencoes: [
+        { label: "Total",      value: resumo.total,      cor: "#4d9fff" },
+        { label: "Pendentes",  value: resumo.pendentes,  cor: "#ffc84d" },
+        { label: "Em Curso",   value: resumo.emCurso,    cor: "#4d9fff" },
+        { label: "Concluídas", value: resumo.concluidas, cor: "#4dffa3" },
+        { label: "Canceladas", value: resumo.canceladas, cor: "#9e9e9e" },
+      ],
+      movimentos: [
+        { label: "Total Registos", value: resumo.total,    cor: "#4d9fff" },
+        { label: "Qtd Entradas",   value: resumo.entradas, cor: "#4dffa3" },
+        { label: "Qtd Saídas",     value: resumo.saidas,   cor: "#ff5f5f" },
+      ],
+      fornecedores: [
+        { label: "Total Fornecedores", value: resumo.total,      cor: "#ce93d8" },
+        { label: "Categorias",         value: resumo.categorias, cor: "#4d9fff" },
+      ],
+      maquinas: [
+        { label: "Total",        value: resumo.total,      cor: "#80cbc4" },
+        { label: "Activas",      value: resumo.activas,    cor: "#4dffa3" },
+        { label: "Manutenção",   value: resumo.manutencao, cor: "#ffc84d" },
+        { label: "Inactivas",    value: resumo.inactivas,  cor: "#9e9e9e" },
+      ],
+    };
+
+    return (
+      <Grid container spacing={2} mb="20px">
+        {(cards[activeRel] ?? []).map((c, i) => (
+          <Grid item xs key={i}>
+            <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid ${c.cor}` }}>
+              <Typography color={cores.grey[300]} fontSize="12px">{c.label}</Typography>
+              <Typography variant="h4" color={c.cor} fontWeight="bold">{c.value}</Typography>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+    );
   };
 
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Header title="RELATÓRIOS" subtitle="Análise e exportação de dados" />
+        <Header title="RELATÓRIOS" subtitle="Análise completa de todos os dados do sistema" />
         {activeRel && registos.length > 0 && (
           <Button variant="contained" startIcon={<PrintOutlinedIcon />}
-            onClick={handlePrint}
+            onClick={() => window.print()}
             sx={{ backgroundColor: cores.blueAccent[700], height: "40px" }}>
             Imprimir / PDF
           </Button>
         )}
       </Box>
 
-      <Box display="flex" gap="20px">
-
-        {/* SIDEBAR */}
-        <Box flex="1" display="flex" flexDirection="column" gap="15px" minWidth="220px">
-          <Paper sx={{ p: 2, backgroundColor: cores.primary[400] }}>
-            <Typography variant="h6" color={cores.grey[100]} mb="10px">Período</Typography>
-            <TextField fullWidth type="date" label="Data Início"
-              InputLabelProps={{ shrink: true }} value={dates.inicio}
-              onChange={e => setDates(d => ({ ...d, inicio: e.target.value }))}
-              sx={{ mb: 2 }} />
-            <TextField fullWidth type="date" label="Data Fim"
-              InputLabelProps={{ shrink: true }} value={dates.fim}
-              onChange={e => setDates(d => ({ ...d, fim: e.target.value }))} />
-          </Paper>
-
-          {relatorios.map(rel => (
-            <Button key={rel.key}
-              variant={activeRel === rel.key ? "contained" : "outlined"}
-              startIcon={<BarChartOutlinedIcon />}
-              onClick={() => runRelatorio(rel.key)}
-              sx={{
-                justifyContent: "flex-start",
-                backgroundColor: activeRel === rel.key ? COR[rel.key] : "transparent",
-                borderColor: COR[rel.key],
-                color: activeRel === rel.key ? "#000" : COR[rel.key],
-                fontWeight: activeRel === rel.key ? "bold" : "normal",
-              }}>
-              {rel.label}
-            </Button>
-          ))}
-        </Box>
-
-        {/* RESULTADO */}
-        <Box flex="3">
-          {loading && (
-            <Typography color={cores.grey[100]}>A carregar relatório...</Typography>
-          )}
-          {error && (
-            <Typography color="error">{error}</Typography>
-          )}
-          {!loading && !activeRel && (
-            <Box display="flex" alignItems="center" justifyContent="center" height="300px">
-              <Typography color={cores.grey[400]} fontSize="16px">
-                Selecciona um relatório para visualizar os dados
-              </Typography>
-            </Box>
-          )}
-
-          {!loading && resumo && (
-            <Box display="flex" flexDirection="column" gap="20px">
-
-              {/* RESUMO */}
-              <Grid container spacing={2}>
-                {activeRel === "inventario" && <>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4d9fff` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Total Produtos</Typography>
-                      <Typography variant="h4" color="#4d9fff">{resumo.totalProdutos ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #ff5f5f` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Sem Stock</Typography>
-                      <Typography variant="h4" color="#ff5f5f">{resumo.semEstoque ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #ffc84d` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Stock Baixo</Typography>
-                      <Typography variant="h4" color="#ffc84d">{resumo.estoqueBaixo ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                </>}
-
-                {activeRel === "utilizadores" && <>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4dffa3` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Total</Typography>
-                      <Typography variant="h4" color="#4dffa3">{resumo.total ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4d9fff` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Activos</Typography>
-                      <Typography variant="h4" color="#4d9fff">{resumo.ativos ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #9e9e9e` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Inactivos</Typography>
-                      <Typography variant="h4" color="#9e9e9e">{(resumo.total ?? 0) - (resumo.ativos ?? 0)}</Typography>
-                    </Paper>
-                  </Grid>
-                </>}
-
-                {activeRel === "manutencao" && <>
-                  <Grid item xs={3}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4d9fff` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Total</Typography>
-                      <Typography variant="h4" color="#4d9fff">{resumo.total ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #ffc84d` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Pendentes</Typography>
-                      <Typography variant="h4" color="#ffc84d">{resumo.pendentes ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4dffa3` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Concluídas</Typography>
-                      <Typography variant="h4" color="#4dffa3">{resumo.concluidas ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #ff5f5f` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Atrasadas</Typography>
-                      <Typography variant="h4" color="#ff5f5f">{resumo.atrasadas ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                </>}
-
-                {activeRel === "movimentos" && <>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4d9fff` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Total</Typography>
-                      <Typography variant="h4" color="#4d9fff">{resumo.total ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #4dffa3` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Entradas</Typography>
-                      <Typography variant="h4" color="#4dffa3">{resumo.entradas ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper sx={{ p: 2, backgroundColor: cores.primary[400], borderLeft: `4px solid #ff5f5f` }}>
-                      <Typography color={cores.grey[300]} fontSize="12px">Saídas</Typography>
-                      <Typography variant="h4" color="#ff5f5f">{resumo.saidas ?? 0}</Typography>
-                    </Paper>
-                  </Grid>
-                </>}
-              </Grid>
-
-              {/* TABELA DE REGISTOS */}
-              {registos.length > 0 && (
-                <Paper sx={{ backgroundColor: cores.primary[400] }}>
-                  <Box p="15px 20px" display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6" color={cores.grey[100]}>
-                      Todos os registos ({registos.length})
-                    </Typography>
-                    <Button size="small" variant="outlined" startIcon={<PrintOutlinedIcon />}
-                      onClick={handlePrint}
-                      sx={{ borderColor: cores.grey[400], color: cores.grey[200] }}>
-                      PDF
-                    </Button>
-                  </Box>
-                  <TableContainer sx={{ maxHeight: "500px" }}>
-                    <Table size="small" stickyHeader id="tabela-relatorio">
-                      <TableHead>
-                        <TableRow>
-                          {(colunasMap[activeRel] ?? []).map(col => (
-                            <TableCell key={col.key}
-                              sx={{ backgroundColor: cores.blueAccent[700], color: cores.grey[100], fontWeight: "bold" }}>
-                              {col.label}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {registos.map((row, i) => (
-                          <TableRow key={i} sx={{
-                            backgroundColor: i % 2 === 0 ? cores.primary[400] : cores.primary[500],
-                            "&:hover": { backgroundColor: cores.primary[300] }
-                          }}>
-                            {(colunasMap[activeRel] ?? []).map(col => (
-                              <TableCell key={col.key} sx={{ color: cores.grey[200], fontSize: "13px" }}>
-                                {col.render
-                                  ? col.render(row[col.key], row)
-                                  : row[col.key] ?? "—"}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Paper>
-              )}
-            </Box>
-          )}
-        </Box>
+      {/* BOTÕES DE SELECÇÃO */}
+      <Box display="flex" gap="12px" mb="25px" flexWrap="wrap">
+        {relatorios.map(rel => (
+          <Button key={rel.key}
+            variant={activeRel === rel.key ? "contained" : "outlined"}
+            startIcon={loading && activeRel === rel.key ? <RefreshOutlinedIcon /> : <BarChartOutlinedIcon />}
+            onClick={() => runRelatorio(rel.key)}
+            sx={{
+              backgroundColor: activeRel === rel.key ? rel.cor : "transparent",
+              borderColor: rel.cor,
+              color: activeRel === rel.key ? "#000" : rel.cor,
+              fontWeight: activeRel === rel.key ? "bold" : "normal",
+              minWidth: "140px",
+            }}>
+            {loading && activeRel === rel.key ? "A carregar..." : rel.label}
+          </Button>
+        ))}
       </Box>
 
-      {/* ESTILOS DE IMPRESSÃO */}
+      {/* SEM SELECÇÃO */}
+      {!activeRel && (
+        <Box display="flex" alignItems="center" justifyContent="center" height="300px"
+          backgroundColor={cores.primary[400]} borderRadius="8px">
+          <Typography color={cores.grey[400]} fontSize="16px">
+            Selecciona um relatório acima para ver todos os dados
+          </Typography>
+        </Box>
+      )}
+
+      {/* RESULTADO */}
+      {activeRel && !loading && resumo && (
+        <Box>
+          {/* CARDS DE RESUMO */}
+          <ResumoCards />
+
+          {/* TABELA COMPLETA */}
+          {registos.length > 0 && (
+            <Paper sx={{ backgroundColor: cores.primary[400] }}>
+              <Box p="15px 20px" display="flex" justifyContent="space-between" alignItems="center"
+                borderBottom={`1px solid ${cores.primary[300]}`}>
+                <Typography variant="h6" color={cores.grey[100]} fontWeight="bold">
+                  Todos os registos — {registos.length} total
+                </Typography>
+                <Typography color={cores.grey[400]} fontSize="12px">
+                  {new Date().toLocaleDateString('pt-AO', {
+                    day: '2-digit', month: 'long', year: 'numeric'
+                  })}
+                </Typography>
+              </Box>
+
+              <TableContainer sx={{ maxHeight: "500px" }} id="tabela-relatorio">
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      {(colunasMap[activeRel] ?? []).map(col => (
+                        <TableCell key={col.key} sx={{
+                          backgroundColor: cores.blueAccent[700],
+                          color: cores.grey[100],
+                          fontWeight: "bold",
+                          fontSize: "13px",
+                        }}>
+                          {col.label}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {registos.map((row, i) => (
+                      <TableRow key={i} sx={{
+                        backgroundColor: i % 2 === 0 ? cores.primary[400] : cores.primary[500],
+                        "&:hover": { backgroundColor: cores.primary[300] }
+                      }}>
+                        {(colunasMap[activeRel] ?? []).map(col => (
+                          <TableCell key={col.key} sx={{ color: cores.grey[200], fontSize: "13px" }}>
+                            {col.render ? col.render(row[col.key], row) : row[col.key] ?? "—"}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {/* ESTILOS IMPRESSÃO */}
       <style>{`
         @media print {
           body * { visibility: hidden; }

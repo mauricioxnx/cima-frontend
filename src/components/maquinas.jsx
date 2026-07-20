@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Box, Button, TextField, useTheme,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Typography, MenuItem,
+  Typography, MenuItem, Chip, Tooltip,
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Formik } from "formik";
@@ -13,9 +13,11 @@ import Header from "./Header";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
 import {
   getMaquinas, createMaquina, updateMaquina, deleteMaquina,
+  getManutencoesPorMaquina, updateEstadoManutencao,
 } from "../services/api";
 
 const tipos = [
@@ -29,7 +31,14 @@ const COR_ESTADO = {
   ACTIVO:        "#4dffa3",
   INACTIVO:      "#9e9e9e",
   EM_MANUTENCAO: "#ffc84d",
-}
+};
+
+const COR_MANUTENCAO = {
+  PENDENTE:  "#ffc84d",
+  EM_CURSO:  "#4d9fff",
+  CONCLUIDA: "#4dffa3",
+  CANCELADA: "#9e9e9e",
+};
 
 const schema = yup.object().shape({
   modelo:          yup.string().required("Obrigatório"),
@@ -49,11 +58,17 @@ const Maquinas = () => {
   const cores = tokens(tema.palette.mode);
   const isNaoMobile = useMediaQuery("(min-width:600px)");
 
-  const [data, setData]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [search, setSearch]   = useState("");
+  const [data, setData]             = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [modal, setModal]           = useState(false);
+  const [editing, setEditing]       = useState(null);
+  const [search, setSearch]         = useState("");
+
+  // modal de manutenções da máquina
+  const [modalManut, setModalManut]   = useState(false);
+  const [manutencoes, setManutencoes] = useState([]);
+  const [maquinaSel, setMaquinaSel]   = useState(null);
+  const [loadManut, setLoadManut]     = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -71,13 +86,38 @@ const Maquinas = () => {
   const openCreate = () => { setEditing(null); setModal(true); };
   const openEdit   = row  => { setEditing(row); setModal(true); };
 
+  const mudarEstadoManutencao = async (manutencaoId, novoEstado) => {
+    try {
+      await updateEstadoManutencao(manutencaoId, novoEstado);
+      const res = await getManutencoesPorMaquina(maquinaSel.id);
+      setManutencoes(res ?? []);
+      load(); // atualiza estado da máquina na tabela
+    } catch (e) {
+      alert("Erro ao atualizar estado da manutenção");
+    }
+  };
+
+  const openManutencoes = async (row) => {
+    setMaquinaSel(row);
+    setModalManut(true);
+    setLoadManut(true);
+    try {
+      const res = await getManutencoesPorMaquina(row.id);
+      setManutencoes(res ?? []);
+    } catch {
+      setManutencoes([]);
+    } finally {
+      setLoadManut(false);
+    }
+  };
+
   const handleAdicionar = async (values, { resetForm }) => {
     try {
       await createMaquina(values);
       await load();
       resetForm();
       setModal(false);
-    } catch(e) {
+    } catch (e) {
       alert(e?.response?.data?.mensagem ?? "Erro ao criar equipamento");
     }
   };
@@ -87,7 +127,7 @@ const Maquinas = () => {
       await updateMaquina(editing.id, values);
       await load();
       setModal(false);
-    } catch(e) {
+    } catch (e) {
       alert(e?.response?.data?.mensagem ?? "Erro ao atualizar equipamento");
     }
   };
@@ -114,14 +154,14 @@ const Maquinas = () => {
       sx={{ "& > div": { gridColumn: isNaoMobile ? undefined : "span 4" } }}>
 
       <TextField fullWidth variant="filled" label="Modelo"
-        name="modelo" value={values.modelo ?? ''}
+        name="modelo" value={values.modelo ?? ""}
         onBlur={handleBlur} onChange={handleChange}
         error={!!touched.modelo && !!errors.modelo}
         helperText={touched.modelo && errors.modelo}
         sx={{ gridColumn: "span 2" }} />
 
       <TextField select fullWidth variant="filled" label="Tipo"
-        name="tipo" value={values.tipo ?? ''}
+        name="tipo" value={values.tipo ?? ""}
         onBlur={handleBlur} onChange={handleChange}
         error={!!touched.tipo && !!errors.tipo}
         helperText={touched.tipo && errors.tipo}
@@ -130,19 +170,19 @@ const Maquinas = () => {
       </TextField>
 
       <TextField fullWidth variant="filled" label="Matrícula / Série"
-        name="matriculaNSerie" value={values.matriculaNSerie ?? ''}
+        name="matriculaNSerie" value={values.matriculaNSerie ?? ""}
         onBlur={handleBlur} onChange={handleChange}
         sx={{ gridColumn: "span 2" }} />
 
       <TextField select fullWidth variant="filled" label="Estado"
-        name="estado" value={values.estado ?? 'ACTIVO'}
+        name="estado" value={values.estado ?? "ACTIVO"}
         onBlur={handleBlur} onChange={handleChange}
         sx={{ gridColumn: "span 2" }}>
         {estadosMaq.map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
       </TextField>
 
       <TextField fullWidth variant="filled" label="Data Aquisição" type="date"
-        name="dataAquisicao" value={values.dataAquisicao ?? ''}
+        name="dataAquisicao" value={values.dataAquisicao ?? ""}
         onBlur={handleBlur} onChange={handleChange}
         InputLabelProps={{ shrink: true }}
         sx={{ gridColumn: "span 4" }} />
@@ -165,20 +205,32 @@ const Maquinas = () => {
         <Box px="8px" py="2px" borderRadius="4px"
           sx={{ background: COR_ESTADO[row?.estado] ?? cores.grey[600] }}>
           <Typography fontSize="11px" color="#000" fontWeight="bold">
-            {row?.estado}
+            {row?.estado?.replace("_", " ")}
           </Typography>
         </Box>
-      )
+      ),
     },
     {
-      field: "acoes", headerName: "Ações", flex: 1,
+      field: "acoes", headerName: "Ações", flex: 1.2,
       renderCell: ({ row }) => (
-        <Box display="flex" gap="10px" alignItems="center" height="100%">
+        <Box display="flex" gap="6px" alignItems="center" height="100%">
+          {/* ✅ ver manutenções */}
+          <Tooltip title="Ver manutenções">
+            <Button variant="contained" size="small"
+              sx={{ backgroundColor: row.estado === "EM_MANUTENCAO"
+                      ? COR_MANUTENCAO.PENDENTE : cores.greenAccent[600],
+                    minWidth: "36px", padding: "4px 8px" }}
+              onClick={() => openManutencoes(row)}>
+              <BuildOutlinedIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+
           <Button variant="contained" size="small"
             sx={{ backgroundColor: cores.blueAccent[600], minWidth: "36px", padding: "4px 8px" }}
             onClick={() => openEdit(row)}>
             <EditOutlinedIcon fontSize="small" />
           </Button>
+
           <Button variant="contained" size="small"
             sx={{ backgroundColor: cores.redAccent[600], minWidth: "36px", padding: "4px 8px" }}
             onClick={() => handleDelete(row.id)}>
@@ -258,16 +310,15 @@ const Maquinas = () => {
           <EditOutlinedIcon sx={{ mr: "8px", verticalAlign: "middle" }} />
           Editar Equipamento
         </DialogTitle>
-
         {editing && (
           <Formik
             onSubmit={handleEditar}
             initialValues={{
-              modelo:          editing.modelo          ?? '',
-              tipo:            editing.tipo            ?? '',
-              matriculaNSerie: editing.matriculaNSerie ?? '',
-              dataAquisicao:   editing.dataAquisicao   ?? '',
-              estado:          editing.estado          ?? 'ACTIVO',
+              modelo:          editing.modelo          ?? "",
+              tipo:            editing.tipo            ?? "",
+              matriculaNSerie: editing.matriculaNSerie ?? "",
+              dataAquisicao:   editing.dataAquisicao   ?? "",
+              estado:          editing.estado          ?? "ACTIVO",
             }}
             validationSchema={schema}
           >
@@ -291,6 +342,88 @@ const Maquinas = () => {
             )}
           </Formik>
         )}
+      </Dialog>
+
+      {/* ✅ MODAL MANUTENÇÕES DA MÁQUINA */}
+      <Dialog open={modalManut} onClose={() => setModalManut(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ backgroundColor: "#f5f5f5", color: "#111", borderBottom: "1px solid #ddd" }}>
+          <BuildOutlinedIcon sx={{ mr: "8px", verticalAlign: "middle", color: "#f0a500" }} />
+          Manutenções — {maquinaSel?.modelo} ({maquinaSel?.matriculaNSerie ?? "—"})
+        </DialogTitle>
+        <DialogContent sx={{ backgroundColor: "#f5f5f5", pt: "16px !important" }}>
+          {loadManut ? (
+            <Typography color="#555">A carregar...</Typography>
+          ) : manutencoes.length === 0 ? (
+            <Typography color="#888" mt="8px">Sem manutenções registadas para este equipamento.</Typography>
+          ) : (
+            <Box display="flex" flexDirection="column" gap="12px" mt="4px">
+              {manutencoes.map(m => (
+                <Box key={m.id}
+                  p="14px" borderRadius="8px"
+                  sx={{ backgroundColor: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", borderLeft: `4px solid ${COR_MANUTENCAO[m.estado] ?? "#4d9fff"}` }}>
+
+                  {/* linha topo: tipo + chip estado */}
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb="6px">
+                    <Typography color="#111" fontWeight="bold" fontSize="14px">
+                      {m.tipoManutencaoNome ?? m.idTipo ?? "Manutenção"} #{m.id}
+                    </Typography>
+                    <Chip label={m.estado} size="small" sx={{
+                      background: COR_MANUTENCAO[m.estado] ?? "#9e9e9e",
+                      color: "#000", fontWeight: "bold", fontSize: "11px",
+                    }} />
+                  </Box>
+
+                  {/* descrição */}
+                  {m.descricao && (
+                    <Typography color="#555" fontSize="12px" mb="8px">{m.descricao}</Typography>
+                  )}
+
+                  {/* datas + técnico */}
+                  <Box display="flex" gap="16px" flexWrap="wrap" mb="10px">
+                    <Typography color="#777" fontSize="11px">📅 Agendada: {m.dataAgendada ?? "—"}</Typography>
+                    {m.dataExecucao && (
+                      <Typography color="#777" fontSize="11px">✅ Executada: {m.dataExecucao}</Typography>
+                    )}
+                    {m.utilizadorNome && (
+                      <Typography color="#777" fontSize="11px">👤 {m.utilizadorNome}</Typography>
+                    )}
+                  </Box>
+
+                  {/* ✅ botões de mudança de estado */}
+                  <Box display="flex" gap="6px" flexWrap="wrap">
+                    {m.estado === "PENDENTE" && (
+                      <Button size="small" variant="contained"
+                        sx={{ fontSize: "11px", bgcolor: "#4d9fff" }}
+                        onClick={() => mudarEstadoManutencao(m.id, "EM_CURSO")}>
+                        ▶ Iniciar
+                      </Button>
+                    )}
+                    {m.estado === "EM_CURSO" && (
+                      <Button size="small" variant="contained"
+                        sx={{ fontSize: "11px", bgcolor: "#4dffa3", color: "#000" }}
+                        onClick={() => mudarEstadoManutencao(m.id, "CONCLUIDA")}>
+                        ✔ Concluir
+                      </Button>
+                    )}
+                    {m.estado !== "CANCELADA" && m.estado !== "CONCLUIDA" && (
+                      <Button size="small" variant="outlined"
+                        sx={{ fontSize: "11px", color: "#f44336", borderColor: "#f44336" }}
+                        onClick={() => mudarEstadoManutencao(m.id, "CANCELADA")}>
+                        ✕ Cancelar
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ backgroundColor: "#f5f5f5", borderTop: "1px solid #ddd", p: "12px 20px" }}>
+          <Button onClick={() => setModalManut(false)} variant="outlined"
+            sx={{ color: "#333", borderColor: "#aaa" }}>
+            Fechar
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

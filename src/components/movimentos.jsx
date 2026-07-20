@@ -11,9 +11,6 @@ import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import SwapHorizOutlinedIcon from "@mui/icons-material/SwapHorizOutlined";
 import { getMovimentos, createMovimento, getInventario } from "../services/api";
 
-
-
-
 const tipos = ["ENTRADA", "SAIDA"];
 
 const empty = {
@@ -23,19 +20,19 @@ const empty = {
   documentoRef:  "",
 };
 
-
 const Movimentos = () => {
   const tema = useTheme();
   const cores = tokens(tema.palette.mode);
   const isNaoMobile = useMediaQuery("(min-width:600px)");
 
-  const [data, setData]       = useState([]);
-  const [inv, setInv]         = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm]       = useState(empty);
-  const [saving, setSaving]   = useState(false);
-  const [filter, setFilter]   = useState("TODOS");
-  const [search, setSearch]   = useState("");
+  const [data, setData]           = useState([]);
+  const [inv, setInv]             = useState([]);
+  const [totalStock, setTotalStock] = useState(0);
+  const [loading, setLoading]     = useState(true);
+  const [form, setForm]           = useState(empty);
+  const [saving, setSaving]       = useState(false);
+  const [filter, setFilter]       = useState("TODOS");
+  const [search, setSearch]       = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -44,7 +41,10 @@ const Movimentos = () => {
       getInventario(),
     ]);
     setData(m.status === "fulfilled" ? m.value ?? [] : []);
-    setInv(i.status  === "fulfilled" ? i.value  ?? [] : []);
+    const inventarios = i.status === "fulfilled" ? i.value ?? [] : [];
+    setInv(inventarios);
+    // ✅ soma todas as quantidades em stock
+    setTotalStock(inventarios.reduce((sum, item) => sum + (item.quantidade ?? 0), 0));
     setLoading(false);
   };
 
@@ -76,8 +76,8 @@ const Movimentos = () => {
   const totalSaidas   = data.filter(d => d.tipoMovimento === "SAIDA").reduce((s, d) => s + (d.quantidade ?? 0), 0);
 
   const COR_TIPO = {
-    ENTRADA:       cores.greenAccent[600],
-    SAIDA:         cores.redAccent[600],
+    ENTRADA: cores.greenAccent[600],
+    SAIDA:   cores.redAccent[600],
   }
 
   const filtrado = data
@@ -103,8 +103,7 @@ const Movimentos = () => {
     },
     {
       field: "inventarioDescricao", headerName: "Produto", flex: 1.5,
-      renderCell: ({ row }) =>
-        row?.inventarioDescricao ?? row?.inventarioCodigo ?? "—",
+      renderCell: ({ row }) => row?.inventarioDescricao ?? row?.inventarioCodigo ?? "—",
     },
     { field: "quantidade", headerName: "Qtd", flex: 0.5 },
     {
@@ -201,6 +200,7 @@ const Movimentos = () => {
             {totalEntradas}
           </Typography>
         </Box>
+
         <Box backgroundColor={cores.primary[400]} p="15px" borderRadius="8px" flex={1}
           borderLeft={`4px solid ${cores.redAccent[500]}`}>
           <Typography color={cores.grey[300]} fontSize="12px">Total Saídas</Typography>
@@ -208,11 +208,21 @@ const Movimentos = () => {
             {totalSaidas}
           </Typography>
         </Box>
+
         <Box backgroundColor={cores.primary[400]} p="15px" borderRadius="8px" flex={1}
           borderLeft={`4px solid ${cores.blueAccent[400]}`}>
           <Typography color={cores.grey[300]} fontSize="12px">Total Registos</Typography>
           <Typography color={cores.blueAccent[400]} fontSize="22px" fontWeight="bold">
             {data.length}
+          </Typography>
+        </Box>
+
+        {/* ✅ Total em Stock */}
+        <Box backgroundColor={cores.primary[400]} p="15px" borderRadius="8px" flex={1}
+          borderLeft={`4px solid #ffc84d`}>
+          <Typography color={cores.grey[300]} fontSize="12px">Total em Stock</Typography>
+          <Typography color="#ffc84d" fontSize="22px" fontWeight="bold">
+            {totalStock}
           </Typography>
         </Box>
       </Box>
